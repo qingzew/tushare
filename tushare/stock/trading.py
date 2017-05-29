@@ -96,7 +96,7 @@ def get_hist_data(code=None, start=None, end=None,
     raise IOError(ct.NETWORK_URL_ERROR_MSG)
 
 
-def _parsing_dayprice_json(pageNum=1):
+def _parsing_dayprice_json(types):
     """
            处理当日行情分页数据，格式为json
      Parameters
@@ -106,9 +106,9 @@ def _parsing_dayprice_json(pageNum=1):
      -------
         DataFrame 当日所有股票交易数据(DataFrame)
     """
-    ct._write_console()
+#     ct._write_console()
     request = Request(ct.SINA_DAY_PRICE_URL%(ct.P_TYPE['http'], ct.DOMAINS['vsf'],
-                                 ct.PAGES['jv'], pageNum))
+                                 ct.PAGES['jv'], types))
     text = urlopen(request, timeout=10).read()
     if text == 'null':
         return None
@@ -128,7 +128,8 @@ def _parsing_dayprice_json(pageNum=1):
     return df
 
 
-def get_tick_data(code=None, date=None, retry_count=3, pause=0.001):
+def get_tick_data(code=None, date=None, retry_count=3, pause=0.001,
+                  src='sn'):
     """
         获取分笔数据
     Parameters
@@ -136,11 +137,12 @@ def get_tick_data(code=None, date=None, retry_count=3, pause=0.001):
         code:string
                   股票代码 e.g. 600848
         date:string
-                  日期 format：YYYY-MM-DD
+                  日期 format: YYYY-MM-DD
         retry_count : int, 默认 3
                   如遇网络等问题重复执行的次数
         pause : int, 默认 0
                  重复请求数据过程中暂停的秒数，防止请求间隔时间太短出现的问题
+        src : 数据源选择，可输入sn(新浪)、tt(腾讯)、nt(网易)，默认sn
      return
      -------
         DataFrame 当日所有股票交易数据(DataFrame)
@@ -148,18 +150,34 @@ def get_tick_data(code=None, date=None, retry_count=3, pause=0.001):
     """
     if code is None or len(code)!=6 or date is None:
         return None
-    symbol = _code_to_symbol(code)
+    if (src.strip() not in ct.TICK_SRCS):
+        print(ct.TICK_SRC_ERROR)
+        return None
+    symbol = ct._code_to_symbol(code)
+    symbol_dgt = ct._code_to_symbol_dgt(code)
+    datestr = date.replace('-', '')
+    url = {
+            ct.TICK_SRCS[0] : ct.TICK_PRICE_URL % (ct.P_TYPE['http'], ct.DOMAINS['sf'], ct.PAGES['dl'],
+                                date, symbol),
+            ct.TICK_SRCS[1] : ct.TICK_PRICE_URL_TT % (ct.P_TYPE['http'], ct.DOMAINS['tt'], ct.PAGES['idx'],
+                                           symbol, datestr),
+            ct.TICK_SRCS[2] : ct.TICK_PRICE_URL_NT % (ct.P_TYPE['http'], ct.DOMAINS['163'], date[0:4], 
+                                         datestr, symbol_dgt)
+             }
     for _ in range(retry_count):
         time.sleep(pause)
         try:
-            re = Request(ct.TICK_PRICE_URL % (ct.P_TYPE['http'], ct.DOMAINS['sf'], ct.PAGES['dl'],
-                                date, symbol))
-            lines = urlopen(re, timeout=10).read()
-            lines = lines.decode('GBK') 
-            if len(lines) < 20:
-                return None
-            df = pd.read_table(StringIO(lines), names=ct.TICK_COLUMNS,
-                               skiprows=[0])      
+            if src == ct.TICK_SRCS[2]:
+                df = pd.read_excel(url[src])
+                df.columns = ct.TICK_COLUMNS
+            else:
+                re = Request(url[src])
+                lines = urlopen(re, timeout=10).read()
+                lines = lines.decode('GBK') 
+                if len(lines) < 20:
+                    return None
+                df = pd.read_table(StringIO(lines), names=ct.TICK_COLUMNS,
+                                   skiprows=[0])      
         except Exception as e:
             print(e)
         else:
@@ -290,12 +308,13 @@ def get_today_all():
       DataFrame
            属性：代码，名称，涨跌幅，现价，开盘价，最高价，最低价，最日收盘价，成交量，换手率，成交额，市盈率，市净率，总市值，流通市值
     """
-    ct._write_head()
-    df = _parsing_dayprice_json(1)
-    if df is not None:
-        for i in range(2, ct.PAGE_NUM[0]):
-            newdf = _parsing_dayprice_json(i)
-            df = df.append(newdf, ignore_index=True)
+#     ct._write_head()
+    df = _parsing_dayprice_json('hs_a').append(_parsing_dayprice_json('shfxjs'),
+                                               ignore_index=True)
+#     if df is not None:
+#         for i in range(2, ct.PAGE_NUM[0]):
+#             newdf = _parsing_dayprice_json(i)
+#             df = df.append(newdf, ignore_index=True)
     return df
 
 
@@ -444,7 +463,7 @@ def get_h_data(code, start=None, end=None, autype='qfq',
                 data = data.drop('factor', axis=1)
             df = _parase_fq_factor(code, start, end)
             df = df.drop_duplicates('date')
-            df = df.sort('date', ascending=False)
+            df = df.sort_values('date', ascending=False)
             firstDate = data.head(1)['date']
             frow = df[df.date == firstDate[0]]
             rt = get_realtime_quotes(code)
@@ -501,7 +520,7 @@ def _parase_fq_factor(code, start, end):
     df = pd.DataFrame({'date':list(text['data'].keys()), 'factor':list(text['data'].values())})
     df['date'] = df['date'].map(_fun_except) # for null case
     if df['date'].dtypes == np.object:
-        df['date'] = df['date'].astype(np.datetime64)
+        df['date'] = pd.to_datetime(df['date'])
     df = df.drop_duplicates('date')
     df['factor'] = df['factor'].astype(float)
     return df
@@ -538,7 +557,7 @@ def _parse_fq_data(url, index, retry_count, pause):
             else:
                 df.columns = ct.HIST_FQ_COLS
             if df['date'].dtypes == np.object:
-                df['date'] = df['date'].astype(np.datetime64)
+                df['date'] = pd.to_datetime(df['date'])
             df = df.drop_duplicates('date')
         except ValueError as e:
             # 时间较早，已经读不到数据
@@ -628,6 +647,8 @@ def get_k_data(code=None, start='', end='',
           close 收盘价
           low 最低价
           volume 成交量
+          amount 成交额
+          turnoverratio 换手率
           code 股票代码
     """
     symbol = ct.INDEX_SYMBOL[code] if index else _code_to_symbol(code)
@@ -674,7 +695,8 @@ def get_k_data(code=None, start='', end='',
                            ignore_index=True)
     if ktype not in ct.K_MIN_LABELS:
         if ((start is not None) & (start != '')) & ((end is not None) & (end != '')):
-            data = data[(data.date >= start) & (data.date <= end)]
+            if data.empty==False:       
+                data = data[(data.date >= start) & (data.date <= end)]
     return data
     raise IOError(ct.NETWORK_URL_ERROR_MSG)
     
@@ -702,7 +724,14 @@ def _get_k_data(url, dataflag='',
                 lines = re.subn(reg, '', lines) 
                 js = json.loads(lines[0])
                 dataflag = dataflag if dataflag in list(js['data'][symbol].keys()) else ct.TT_K_TYPE[ktype.upper()]
-                df = pd.DataFrame(js['data'][symbol][dataflag], columns=ct.KLINE_TT_COLS)
+                if len(js['data'][symbol][dataflag]) == 0:
+                    return None
+                if len(js['data'][symbol][dataflag][0]) == 6:
+                    df = pd.DataFrame(js['data'][symbol][dataflag], 
+                                  columns = ct.KLINE_TT_COLS_MINS)
+                else:
+                    df = pd.DataFrame(js['data'][symbol][dataflag], 
+                                  columns = ct.KLINE_TT_COLS)
                 df['code'] = symbol if index else code
                 if ktype in ct.K_MIN_LABELS:
                     df['date'] = df['date'].map(lambda x: '%s-%s-%s %s:%s'%(x[0:4], x[4:6], 
@@ -749,4 +778,4 @@ def _code_to_symbol(code):
             return ''
         else:
             return 'sh%s'%code if code[:1] in ['5', '6', '9'] else 'sz%s'%code
-  
+

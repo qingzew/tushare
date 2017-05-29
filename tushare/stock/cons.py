@@ -25,7 +25,7 @@ DOMAINS = {'sina': 'sina.com.cn', 'sinahq': 'sinajs.cn',
            'idx': 'www.csindex.com.cn', '163': 'money.163.com',
            'em': 'eastmoney.com', 'sseq': 'query.sse.com.cn',
            'sse': 'www.sse.com.cn', 'szse': 'www.szse.cn',
-           'oss': '218.244.146.57', 'idxip':'115.29.204.48',
+           'oss': 'file.tushare.org', 'idxip':'115.29.204.48',
            'shibor': 'www.shibor.org', 'mbox':'www.cbooo.cn',
            'tt': 'gtimg.cn', 'gw': 'gw.com.cn'}
 PAGES = {'fd': 'index.phtml', 'dl': 'downxls.php', 'jv': 'json_v2.php',
@@ -38,7 +38,8 @@ PAGES = {'fd': 'index.phtml', 'dl': 'downxls.php', 'jv': 'json_v2.php',
          'zz500wt':'000905closeweight.xls',
          't_ticks':'vMS_tradedetail.php', 'dw': 'downLoad.html',
          'qmd':'queryMargin.do', 'szsefc':'ShowReport.szse',
-         'ssecq':'commonQuery.do', 'sinadd':'cn_bill_download.php', 'ids_sw':'SwHy.php'}
+         'ssecq':'commonQuery.do', 'sinadd':'cn_bill_download.php', 'ids_sw':'SwHy.php',
+         'idx': 'index.php'}
 TICK_COLUMNS = ['time', 'price', 'change', 'volume', 'amount', 'type']
 TODAY_TICK_COLUMNS = ['time', 'price', 'pchange', 'change', 'volume', 'amount', 'type']
 DAY_TRADING_COLUMNS = ['code', 'symbol', 'name', 'changepercent',
@@ -67,8 +68,11 @@ FOR_CLASSIFY_B_COLS = ['code','name']
 FOR_CLASSIFY_W_COLS = ['date','code', 'weight']
 FOR_CLASSIFY_W5_COLS = ['date','code', 'name', 'weight']
 THE_FIELDS = ['code','symbol','name','changepercent','trade','open','high','low','settlement','volume','turnoverratio']
-KLINE_TT_COLS = ['date', 'open', 'close', 'high', 'low', 'volume']
+KLINE_TT_COLS_MINS = ['date', 'open', 'close', 'high', 'low', 'volume']
+KLINE_TT_COLS = ['date', 'open', 'close', 'high', 'low', 'volume', 'amount', 'turnoverratio']
 TICK_PRICE_URL = '%smarket.%s/%s?date=%s&symbol=%s'
+TICK_PRICE_URL_TT = '%sstock.%s/data/%s?appn=detail&action=download&c=%s&d=%s'
+TICK_PRICE_URL_NT = '%squotes.%s/cjmx/%s/%s/%s.xls'
 TODAY_TICKS_PAGE_URL = '%s%s/quotes_service/api/%s/CN_Transactions.getAllPageTime?date=%s&symbol=%s'
 TODAY_TICKS_URL = '%s%s/quotes_service/view/%s?symbol=%s&date=%s&page=%s'
 KLINE_TT_URL = '%sweb.ifzq.%s/appstock/app/%skline/get?_var=kline_day%s&param=%s,%s,%s,%s,640,%s&r=0.%s'
@@ -76,7 +80,7 @@ KLINE_TT_MIN_URL = '%sifzq.%s/appstock/app/kline/mkline?param=%s,m%s,,640&_var=m
 DAY_PRICE_URL = '%sapi.finance.%s/%s/?code=%s&type=last'
 LIVE_DATA_URL = '%shq.%s/rn=%s&list=%s'
 DAY_PRICE_MIN_URL = '%sapi.finance.%s/akmin?scode=%s&type=%s'
-SINA_DAY_PRICE_URL = '%s%s/quotes_service/api/%s/Market_Center.getHQNodeData?num=80&sort=code&asc=0&node=hs_a&symbol=&_s_r_a=page&page=%s'
+SINA_DAY_PRICE_URL = '%s%s/quotes_service/api/%s/Market_Center.getHQNodeData?num=10000&node=%s'
 REPORT_URL = '%s%s/q/go.php/vFinanceAnalyze/kind/mainindex/%s?s_i=&s_a=&s_c=&reportdate=%s&quarter=%s&p=%s&num=%s'
 FORECAST_URL = '%s%s/q/go.php/vFinanceAnalyze/kind/performance/%s?s_i=&s_a=&s_c=&s_type=&reportdate=%s&quarter=%s&p=%s&num=%s'
 PROFIT_URL = '%s%s/q/go.php/vFinanceAnalyze/kind/profit/%s?s_i=&s_a=&s_c=&reportdate=%s&quarter=%s&p=%s&num=%s'
@@ -87,8 +91,8 @@ CASHFLOW_URL = '%s%s/q/go.php/vFinanceAnalyze/kind/cashflow/%s?s_i=&s_a=&s_c=&re
 SHIBOR_TYPE ={'Shibor': 'Shibor数据', 'Quote': '报价数据', 'Tendency': 'Shibor均值数据',
               'LPR': 'LPR数据', 'LPR_Tendency': 'LPR均值数据'}
 SHIBOR_DATA_URL = '%s%s/shibor/web/html/%s?nameNew=Historical_%s_Data_%s.xls&downLoadPath=data&nameOld=%s%s.xls&shiborSrc=http://www.shibor.org/shibor/'
-ALL_STOCK_BASICS_FILE = P_TYPE['http'] + DOMAINS['oss'] + '/static/%sall%s.csv'
-ALL_CAL_FILE = '%s%s/static/calAll.csv'%(P_TYPE['http'], DOMAINS['oss'])
+ALL_STOCK_BASICS_FILE = P_TYPE['http'] + DOMAINS['oss'] + '/tsdata/%sall%s.csv'
+ALL_CAL_FILE = '%s%s/tsdata/calAll.csv'%(P_TYPE['http'], DOMAINS['oss'])
 SINA_CONCEPTS_INDEX_URL = '%smoney.%s/q/view/%s?param=class'
 SINA_INDUSTRY_INDEX_URL = '%s%s/q/view/%s'
 SINA_DATA_DETAIL_URL = '%s%s/quotes_service/api/%s/Market_Center.getHQNodeData?page=1&num=1000&sort=symbol&asc=1&node=%s&symbol=&_s_r_a=page'
@@ -137,6 +141,8 @@ LHB_MSG = '周期输入有误，请输入数字5、10、30或60'
 TOKEN_F_P = 'tk.csv'
 TOKEN_ERR_MSG = '请设置通联数据接口的token凭证码'
 BOX_INPUT_ERR_MSG = '请输入YYYY-MM格式的年月数据'
+TICK_SRCS = ['sn', 'tt', 'nt']
+TICK_SRC_ERROR = '数据源代码只能输入sn,tt,nt其中之一'
 INDEX_SYMBOL = {"399990": "sz399990", "000006": "sh000006", "399998": "sz399998", 
                 "399436": "sz399436", "399678": "sz399678", "399804": "sz399804", 
                 "000104": "sh000104", "000070": "sh000070", "399613": "sz399613", 
@@ -292,3 +298,15 @@ def _code_to_symbol(code):
             return ''
         else:
             return 'sh%s'%code if code[:1] in ['5', '6', '9'] else 'sz%s'%code
+        
+def _code_to_symbol_dgt(code):
+    """
+        生成symbol代码标志
+    """
+    if code in INDEX_LABELS:
+        return INDEX_LIST[code]
+    else:
+        if len(code) != 6 :
+            return ''
+        else:
+            return '0%s'%code if code[:1] in ['5', '6', '9'] else '1%s'%code
